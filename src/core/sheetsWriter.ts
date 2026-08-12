@@ -6,6 +6,18 @@ import { ensureSheetFormat } from './sheetsFormatter';
 import { LinkedInRecord } from '../types';
 
 /**
+ * Escapa caracteres que Google Sheets interpreta como formulas para evitar errores #ERROR!.
+ */
+function escapeGoogleSheetsFormula(value: string): string {
+  if (!value) return value;
+  const trimmed = value.trim();
+  if (trimmed.startsWith('=') || trimmed.startsWith('+') || trimmed.startsWith('-') || trimmed.startsWith('@')) {
+    return `'${value}`;
+  }
+  return value;
+}
+
+/**
  * Helper genérico para reintentar operaciones con backoff exponencial.
  */
 async function retryWithBackoff<T>(fn: () => Promise<T>, maxRetries = 5, initialDelay = 1000): Promise<T> {
@@ -120,10 +132,10 @@ export class SheetsWriter {
 
     const values = [[
       record.timestamp,
-      record.senderIdentifier,
-      record.whatsappName,
+      escapeGoogleSheetsFormula(record.senderIdentifier),
+      escapeGoogleSheetsFormula(record.whatsappName),
       record.linkedinUrl,
-      record.fullText
+      escapeGoogleSheetsFormula(record.fullText)
     ]];
 
     if (rowNum) {
@@ -166,10 +178,10 @@ export class SheetsWriter {
       }
       rowValuesMap.set(rowNum, [
         record.timestamp,
-        record.senderIdentifier,
-        record.whatsappName,
+        escapeGoogleSheetsFormula(record.senderIdentifier),
+        escapeGoogleSheetsFormula(record.whatsappName),
         record.linkedinUrl,
-        record.fullText
+        escapeGoogleSheetsFormula(record.fullText)
       ]);
     }
 

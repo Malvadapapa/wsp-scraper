@@ -71,5 +71,22 @@ export async function connectToWhatsApp(
     }
   });
 
+  // Procesar mensajes del historial de sincronizacion al iniciar o reconectar
+  sock.ev.on('messaging-history.set', async ({ messages }) => {
+    if (!messages || messages.length === 0) return;
+    logger.info(`Procesando ${messages.length} mensajes del historial de sincronizacion para recuperar enlaces...`);
+
+    for (const msg of messages) {
+      // Ignorar mensajes propios del bot
+      if (msg.key.fromMe) continue;
+
+      try {
+        await onMessage(sock, msg);
+      } catch (err: any) {
+        logger.error(`Error al procesar mensaje de historial: ${err.message}`);
+      }
+    }
+  });
+
   return sock;
 }
