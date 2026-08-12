@@ -8,6 +8,7 @@
     "import-history": "ts-node src/historyImport/run.ts",
     "start-live": "ts-node src/liveListener/listen.ts",
     "list-groups": "ts-node src/utils/listGroups.ts",
+    "init-sheet": "ts-node src/utils/initSheet.ts",
     "test": "vitest run"
   },
   "dependencies": {
