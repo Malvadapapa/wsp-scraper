@@ -10,8 +10,8 @@ import { LinkedInRecord } from '../types';
 
 // Validar que el JID del grupo objetivo esté configurado antes de iniciar
 if (!config.TARGET_GROUP_JID) {
-  logger.error('❌ Error de arranque: TARGET_GROUP_JID no está configurado en el archivo .env.');
-  logger.error('👉 Ejecuta primero "npm run list-groups" para escanear el QR y obtener el JID exacto de tu grupo de prueba.');
+  logger.error('Error de arranque: TARGET_GROUP_JID no esta configurado en el archivo .env.');
+  logger.error('Ejecuta primero "npm run list-groups" para escanear el QR y obtener el JID de tu grupo.');
   process.exit(1);
 }
 
@@ -20,20 +20,20 @@ const writer = new SheetsWriter();
 const queue = new QueueProcessor();
 
 async function main() {
-  logger.info('🤖 Iniciando bot de escucha en vivo...');
+  logger.info('Iniciando bot de escucha en vivo...');
 
   // Inicializar la caché de Sheets y aplicar formato estético
   try {
     await writer.initialize();
   } catch (err: any) {
-    logger.warn(`No se pudo inicializar la hoja de Google Sheets al arrancar: ${err.message}. El bot seguirá funcionando y encolando localmente.`);
+    logger.warn(`No se pudo inicializar la hoja de Google Sheets al arrancar: ${err.message}. El bot seguira funcionando y encolando localmente.`);
   }
 
   // 1. Iniciar la conexión persistente con WhatsApp
   await connectToWhatsApp(
     // Callback: Conexión abierta
     async (sock: WASocket) => {
-      logger.info(`📡 Escuchando mensajes en tiempo real para el grupo JID: ${targetGroupJid}`);
+      logger.info(`Escuchando mensajes en tiempo real para el grupo JID: ${targetGroupJid}`);
       
       // Intentar procesar cola local pendiente al conectar
       await queue.processQueue(writer);
@@ -45,8 +45,14 @@ async function main() {
       // Filtrar mensajes que pertenecen únicamente al grupo objetivo
       if (remoteJid !== targetGroupJid) return;
 
-      // Obtener el remitente (teléfono o ID de usuario)
-      const senderJid = msg.key.participant || msg.key.remoteJid || '';
+      // En un grupo, el remitente real siempre está en participant
+      // Priorizamos el número de teléfono real (participantPn) sobre el identificador interno (participant)
+      const senderJid = msg.key.participantPn || msg.key.participant;
+      if (!senderJid) {
+        logger.debug('Mensaje de grupo recibido sin participante. Ignorando...');
+        return;
+      }
+
       const senderRaw = senderJid.split('@')[0];
 
       // Obtener el nombre push de WhatsApp
@@ -68,7 +74,7 @@ async function main() {
         const msgDate = new Date(msgTimestamp * 1000);
         const timestampStr = formatSheetsDate(msgDate);
 
-        logger.info(`✨ ¡LinkedIn detectado de [${whatsappName}] (${senderRaw})!`);
+        logger.info(`LinkedIn detectado de [${whatsappName}] (${senderRaw})!`);
 
         const record: LinkedInRecord = {
           timestamp: timestampStr,
@@ -101,18 +107,18 @@ async function main() {
   const gracefulShutdown = async (signal: string) => {
     if (isShuttingDown) return;
     isShuttingDown = true;
-    logger.info(`🛑 Recibida señal ${signal}. Iniciando apagado ordenado...`);
+    logger.info(`Recibida senal ${signal}. Iniciando apagado ordenado...`);
     clearInterval(queueInterval);
 
     try {
       // Intentar una última escritura antes de apagar
       await queue.processQueue(writer);
-      logger.info('📦 Cola local guardada.');
+      logger.info('Cola local guardada.');
     } catch (err: any) {
       logger.error(`Error al procesar la cola durante el apagado: ${err.message}`);
     }
 
-    logger.info('👋 Desconexión limpia completada. Saliendo.');
+    logger.info('Desconexion limpia completada. Saliendo.');
     process.exit(0);
   };
 
@@ -121,6 +127,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  logger.error(`❌ Error crítico en el proceso en vivo: ${err.message}`);
+  logger.error(`Error critico en el proceso en vivo: ${err.message}`);
   process.exit(1);
 });

@@ -86,12 +86,12 @@ export class SheetsWriter {
   }
 
   /**
-   * Lee la hoja de cálculo y mapea los remitentes actuales a sus índices de fila.
+   * Lee la hoja de cálculo y mapea los enlaces de LinkedIn actuales a sus índices de fila.
    */
   private async loadRowMap(): Promise<void> {
     const response = await this.sheets.spreadsheets.values.get({
       spreadsheetId: config.GOOGLE_SPREADSHEET_ID,
-      range: `${config.GOOGLE_SHEET_NAME}!B:B`,
+      range: `${config.GOOGLE_SHEET_NAME}!D:D`,
     });
 
     const rows = response.data.values;
@@ -99,24 +99,24 @@ export class SheetsWriter {
 
     if (rows && rows.length > 0) {
       for (let i = 1; i < rows.length; i++) {
-        const identifier = rows[i][0];
-        if (identifier) {
-          this.rowMap.set(identifier.toString().trim(), i + 1);
+        const linkedinUrl = rows[i]?.[0];
+        if (linkedinUrl) {
+          this.rowMap.set(linkedinUrl.toString().trim(), i + 1);
         }
       }
       this.nextRowNumber = rows.length + 1;
     } else {
       this.nextRowNumber = 2;
     }
-    logger.info(`📋 Mapeo cargado en memoria: ${this.rowMap.size} remitentes. Siguiente fila libre: ${this.nextRowNumber}`);
+    logger.info(`📋 Mapeo cargado en memoria: ${this.rowMap.size} enlaces de LinkedIn. Siguiente fila libre: ${this.nextRowNumber}`);
   }
 
   /**
    * Realiza el upsert de un único registro en tiempo real.
    */
   public async upsertRecord(record: LinkedInRecord): Promise<void> {
-    const sender = record.senderIdentifier.trim();
-    const rowNum = this.rowMap.get(sender);
+    const linkedin = record.linkedinUrl.trim();
+    const rowNum = this.rowMap.get(linkedin);
 
     const values = [[
       record.timestamp,
@@ -127,7 +127,7 @@ export class SheetsWriter {
     ]];
 
     if (rowNum) {
-      logger.info(`✍️ Actualizando registro existente para [${sender}] en la fila ${rowNum}...`);
+      logger.info(`✍️ Actualizando registro existente para el LinkedIn [${linkedin}] en la fila ${rowNum}...`);
       await retryWithBackoff(() => this.sheets.spreadsheets.values.update({
         spreadsheetId: config.GOOGLE_SPREADSHEET_ID,
         range: `${config.GOOGLE_SHEET_NAME}!A${rowNum}:E${rowNum}`,
@@ -136,14 +136,14 @@ export class SheetsWriter {
       }));
     } else {
       const targetRow = this.nextRowNumber;
-      logger.info(`➕ Insertando nuevo registro para [${sender}] en la fila ${targetRow}...`);
+      logger.info(`➕ Insertando nuevo registro para el LinkedIn [${linkedin}] en la fila ${targetRow}...`);
       await retryWithBackoff(() => this.sheets.spreadsheets.values.update({
         spreadsheetId: config.GOOGLE_SPREADSHEET_ID,
         range: `${config.GOOGLE_SHEET_NAME}!A${targetRow}:E${targetRow}`,
         valueInputOption: 'USER_ENTERED',
         requestBody: { values },
       }));
-      this.rowMap.set(sender, targetRow);
+      this.rowMap.set(linkedin, targetRow);
       this.nextRowNumber++;
     }
   }
@@ -158,11 +158,11 @@ export class SheetsWriter {
     const rowValuesMap = new Map<number, any[]>();
 
     for (const record of records) {
-      const sender = record.senderIdentifier.trim();
-      let rowNum = this.rowMap.get(sender);
+      const linkedin = record.linkedinUrl.trim();
+      let rowNum = this.rowMap.get(linkedin);
       if (!rowNum) {
         rowNum = this.nextRowNumber++;
-        this.rowMap.set(sender, rowNum);
+        this.rowMap.set(linkedin, rowNum);
       }
       rowValuesMap.set(rowNum, [
         record.timestamp,
