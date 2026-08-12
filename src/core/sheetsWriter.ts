@@ -43,10 +43,7 @@ export class SheetsWriter {
    * Inicializa el cliente de Google Sheets con la cuenta de servicio.
    */
   private initClient() {
-    if (!fs.existsSync(config.GOOGLE_SERVICE_ACCOUNT_JSON_PATH)) {
-      throw new Error(`No se encontró el archivo de credenciales de Google en: ${config.GOOGLE_SERVICE_ACCOUNT_JSON_PATH}`);
-    }
-    const creds = JSON.parse(fs.readFileSync(config.GOOGLE_SERVICE_ACCOUNT_JSON_PATH, 'utf-8'));
+    const creds = JSON.parse(config.GOOGLE_SERVICE_ACCOUNT_JSON);
     const auth = new google.auth.JWT(
       creds.client_email,
       undefined,
