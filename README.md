@@ -5,6 +5,7 @@ Este proyecto en Node.js y TypeScript automatiza la captura y organización de e
 El sistema se compone de dos flujos de trabajo independientes pero compartidos:
 - **Módulo A (Importación Histórica)**: Un script de ejecución única que lee un archivo `.txt` exportado de WhatsApp (`chat.txt`), extrae los enlaces de LinkedIn de forma cronológica y los sube en lote (batch upsert) a la planilla de Google Sheets.
 - **Módulo B (Escucha en Vivo 24/7)**: Un daemon continuo que utiliza Baileys (`@whiskeysockets/baileys`) para monitorear el grupo objetivo en tiempo real, registrando las detecciones en una cola local antes de subirlas a la nube para garantizar que ningún dato se pierda en caso de fallos de red.
+- **Módulo C (Dashboard de Analytics)**: Un pipeline que descarga los registros de la Hoja 1, los cruza con clasificaciones de perfiles, y genera en la Hoja 2 ("Dashboard") tablas ordenadas de datos y 4 gráficos nativos interactivos estructurados en grilla con formato premium.
 
 ---
 
@@ -12,7 +13,7 @@ El sistema se compone de dos flujos de trabajo independientes pero compartidos:
 
 - **Node.js**: Versión 20 o superior.
 - **WhatsApp**: Un número (recomendado secundario) para emparejar el bot mediante código QR.
-- **Google Cloud Platform**: Proyecto con la API de Google Sheets habilitada y una **Cuenta de Servicio** configurada (las credenciales deben guardarse como `credentials.json` en la raíz del proyecto).
+- **Google Cloud Platform**: Proyecto con la API de Google Sheets habilitada y una **Cuenta de Servicio** configurada (las credenciales deben guardarse como `credentials.json` en la raíz del proyecto o pasarse como variable de entorno `GOOGLE_SERVICE_ACCOUNT_JSON`).
 - **Google Sheet**: Compartir la planilla de destino otorgando permisos de **Editor** al email de la Cuenta de Servicio.
 
 ---
@@ -25,7 +26,7 @@ El sistema se compone de dos flujos de trabajo independientes pero compartidos:
    ```
 
 2. **Configurar las credenciales de Google**:
-   Coloca el archivo de credenciales JSON descargado de Google Cloud en la raíz del proyecto con el nombre `credentials.json`.
+   Coloca el archivo de credenciales JSON descargado de Google Cloud en la raíz del proyecto con el nombre `credentials.json`, o bien guárdalo en la variable de entorno `GOOGLE_SERVICE_ACCOUNT_JSON` en tu archivo `.env`.
 
 3. **Configurar el archivo de entorno**:
    Copia el archivo `.env.example` como `.env` y edita los valores con el ID de tu Google Sheet:
@@ -67,6 +68,13 @@ npm run import-history
 ```
 *Este proceso realiza un escaneo secuencial rápido y ejecuta un upsert masivo eficiente agrupando celdas contiguas, evitando chocar contra los límites de cuota de la API de Google.*
 
+### Paso 4: Generar el Dashboard de Analytics (Módulo C)
+Una vez clasificados los datos e importados en la Hoja 1, ejecuta el módulo de visualización:
+```bash
+npm run analytics
+```
+*Este comando descargará el dataset de Google Sheets, procesará las clasificaciones agregadas en `data/classifications.json` y creará la solapa `Dashboard` con un panel visual premium e interactivo con gráficos nativos.*
+
 ### Ejecutar Pruebas
 Puedes ejecutar la suite de pruebas unitarias para validar el comportamiento del extractor y parseador usando:
 ```bash
@@ -81,6 +89,11 @@ La estructura sigue principios de **Clean Architecture**, dividiendo las respons
 
 ```
 src/
+  analytics/
+    analyzer.ts            # Lógica pura de agregación, país por prefijo y distribución horaria
+    chartSpecs.ts          # Especificaciones estructuradas para los gráficos nativos de Google Sheets
+    dashboardWriter.ts     # Escritura y formateo premium de tablas y gráficos en solapa "Dashboard"
+    run.ts                 # Orquestador del pipeline de análisis y visualización
   core/
     config.ts              # Validación en arranque de variables de entorno mediante Zod
     logger.ts              # Logger estructurado utilizando Pino
@@ -93,8 +106,9 @@ src/
   liveListener/
     baileysSocket.ts       # Ciclo de vida y reconexión resiliente del cliente de Baileys
     queueProcessor.ts      # Cola local append-only (data/queue.jsonl) ante fallos de la API
-    listen.ts              # Callback central de mensajería y persistencia en vivo
+    listen.ts              # Callback central de mensyjería y persistencia en vivo
   utils/
+    downloadSheet.ts       # Utilidad para descargar datos de Sheets vía API a JSON local
     listGroups.ts          # Utilidad para login temporal y mapeo de nombres de grupos
   types/
     index.ts               # Interfaces y definiciones estrictas de TypeScript
@@ -106,3 +120,4 @@ Para asegurar que la planilla compartida tenga una excelente lectura, la aplicac
 - **Fila Congelada**: La fila 1 se mantiene siempre fija al hacer scroll.
 - **Zebra Striping**: Filas de datos alternan color de fondo blanco y gris claro (`#F7FAFC`) de forma automática.
 - **Ajuste de Texto**: El mensaje original de WhatsApp tiene habilitado el ajuste de texto en la celda para evitar deformar el layout.
+- **Dashboard Autocontenido**: La pestaña secundaria consolida la información organizada con bordes limpios, alineación numérica estricta y gráficos nativos de torta, columnas y líneas sincronizados directamente con las tablas generadas.
