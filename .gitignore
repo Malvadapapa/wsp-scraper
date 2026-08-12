@@ -1,0 +1,9 @@
+node_modules/
+dist/
+auth_info/
+credentials.json
+.env
+data/
+*.log
+chat.txt
+*.txt
