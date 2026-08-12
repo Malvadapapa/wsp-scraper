@@ -4,6 +4,22 @@ import { config } from './config';
 import { logger } from './logger';
 import { ensureSheetFormat } from './sheetsFormatter';
 import { LinkedInRecord } from '../types';
+import { getContactName } from './contactsCache';
+
+/**
+ * Normaliza un numero de telefono al formato +XXXX (sin espacios ni guiones).
+ */
+function normalizePhoneNumber(phone: string): string {
+  if (!phone) return phone;
+  const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+  if (cleaned.startsWith('+')) {
+    return cleaned;
+  }
+  if (/^\d+$/.test(cleaned)) {
+    return `+${cleaned}`;
+  }
+  return cleaned;
+}
 
 /**
  * Escapa caracteres que Google Sheets interpreta como formulas para evitar errores #ERROR!.
@@ -130,12 +146,20 @@ export class SheetsWriter {
     const linkedin = record.linkedinUrl.trim();
     const rowNum = this.rowMap.get(linkedin);
 
+    let finalName = record.whatsappName;
+    if (!finalName || finalName === record.senderIdentifier || /^[\+\d\s\-\(\)]+$/.test(finalName.trim())) {
+      const cachedName = getContactName(record.senderIdentifier);
+      if (cachedName) {
+        finalName = cachedName;
+      }
+    }
+
     const values = [[
       record.timestamp,
-      escapeGoogleSheetsFormula(record.senderIdentifier),
-      escapeGoogleSheetsFormula(record.whatsappName),
+      escapeGoogleSheetsFormula(normalizePhoneNumber(record.senderIdentifier)),
+      escapeGoogleSheetsFormula(finalName),
       record.linkedinUrl,
-      escapeGoogleSheetsFormula(record.fullText)
+      record.fullText ? '\n' + escapeGoogleSheetsFormula(record.fullText) + '\n ' : ''
     ]];
 
     if (rowNum) {
@@ -176,12 +200,21 @@ export class SheetsWriter {
         rowNum = this.nextRowNumber++;
         this.rowMap.set(linkedin, rowNum);
       }
+
+      let finalName = record.whatsappName;
+      if (!finalName || finalName === record.senderIdentifier || /^[\+\d\s\-\(\)]+$/.test(finalName.trim())) {
+        const cachedName = getContactName(record.senderIdentifier);
+        if (cachedName) {
+          finalName = cachedName;
+        }
+      }
+
       rowValuesMap.set(rowNum, [
         record.timestamp,
-        escapeGoogleSheetsFormula(record.senderIdentifier),
-        escapeGoogleSheetsFormula(record.whatsappName),
+        escapeGoogleSheetsFormula(normalizePhoneNumber(record.senderIdentifier)),
+        escapeGoogleSheetsFormula(finalName),
         record.linkedinUrl,
-        escapeGoogleSheetsFormula(record.fullText)
+        record.fullText ? '\n' + escapeGoogleSheetsFormula(record.fullText) + '\n ' : ''
       ]);
     }
 
