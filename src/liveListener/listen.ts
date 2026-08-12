@@ -8,6 +8,32 @@ import { connectToWhatsApp } from './baileysSocket';
 import { formatSheetsDate } from '../historyImport/parseExport';
 import { LinkedInRecord } from '../types';
 import { acquireInstanceLock, releaseInstanceLock } from '../core/instanceLock';
+import fs from 'fs';
+import path from 'path';
+
+/**
+ * Resuelve el JID del remitente a su numero de telefono real si es nuestro propio LID.
+ */
+function resolveSenderJid(senderJid: string): string {
+  if (!senderJid) return '';
+  const rawJid = senderJid.split('@')[0].split(':')[0];
+  try {
+    const credsPath = path.resolve(process.cwd(), 'auth_info/creds.json');
+    if (fs.existsSync(credsPath)) {
+      const creds = JSON.parse(fs.readFileSync(credsPath, 'utf-8'));
+      const meId = creds.me?.id;
+      const meLid = creds.me?.lid;
+      const cleanMeId = meId ? meId.split(':')[0].split('@')[0] : null;
+      const cleanMeLid = meLid ? meLid.split(':')[0].split('@')[0] : null;
+      if (cleanMeLid && rawJid === cleanMeLid) {
+        return cleanMeId || rawJid;
+      }
+    }
+  } catch (err) {
+    // ignorar
+  }
+  return rawJid;
+}
 
 // Validar que el JID del grupo objetivo esté configurado antes de iniciar
 if (!config.TARGET_GROUP_JID) {
@@ -61,7 +87,7 @@ async function main() {
         return;
       }
 
-      const senderRaw = senderJid.split('@')[0];
+      const senderRaw = resolveSenderJid(senderJid);
 
       // Obtener el nombre push de WhatsApp
       const whatsappName = msg.pushName || (msg.key.fromMe ? (sock.user?.name || 'Yo') : 'Desconocido');

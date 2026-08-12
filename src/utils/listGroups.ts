@@ -5,7 +5,7 @@ import { logger } from '../core/logger';
 import { Boom } from '@hapi/boom';
 
 async function listGroups() {
-  logger.info('🔌 Conectando a WhatsApp para listar grupos...');
+  logger.info('Conectando a WhatsApp para listar grupos...');
 
   const { state, saveCreds } = await useMultiFileAuthState('auth_info');
 
@@ -21,7 +21,7 @@ async function listGroups() {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
-      logger.info('📸 Escanea el siguiente código QR con tu WhatsApp en Configuración > Dispositivos vinculados:');
+      logger.info('Escanea el siguiente codigo QR con tu WhatsApp en Configuracion > Dispositivos vinculados:');
       qrcode.generate(qr, { small: true });
     }
 
@@ -29,17 +29,17 @@ async function listGroups() {
       const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
       
-      logger.warn(`❌ Conexión cerrada. Razón: ${statusCode}. Reconectando: ${shouldReconnect}`);
+      logger.warn(`Conexion cerrada. Razon: ${statusCode}. Reconectando: ${shouldReconnect}`);
       if (shouldReconnect) {
         // En este script de utilidad, si se cierra por error, reintentamos llamando a la función
         setTimeout(listGroups, 3000);
       } else {
-        logger.error('Session logged out. Elimina la carpeta "auth_info" y vuelve a ejecutar.');
+        logger.error('Sesion cerrada. Elimina la carpeta "auth_info" y vuelve a ejecutar.');
         process.exit(1);
       }
     } else if (connection === 'open') {
-      logger.info('🟢 ¡Conexión exitosa a WhatsApp!');
-      logger.info('🔍 Obteniendo lista de grupos...');
+      logger.info('Conexion exitosa a WhatsApp!');
+      logger.info('Obteniendo lista de grupos...');
 
       try {
         const groups = await sock.groupFetchAllParticipating();
