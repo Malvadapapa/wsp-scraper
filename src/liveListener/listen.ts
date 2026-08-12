@@ -7,6 +7,7 @@ import { QueueProcessor } from './queueProcessor';
 import { connectToWhatsApp } from './baileysSocket';
 import { formatSheetsDate } from '../historyImport/parseExport';
 import { LinkedInRecord } from '../types';
+import { acquireInstanceLock, releaseInstanceLock } from '../core/instanceLock';
 
 // Validar que el JID del grupo objetivo esté configurado antes de iniciar
 if (!config.TARGET_GROUP_JID) {
@@ -20,6 +21,9 @@ const writer = new SheetsWriter();
 const queue = new QueueProcessor();
 
 async function main() {
+  // Adquirir bloqueo de instancia unica al arrancar
+  acquireInstanceLock();
+
   logger.info('Iniciando bot de escucha en vivo...');
 
   // Inicializar la caché de Sheets y aplicar formato estético
@@ -118,12 +122,18 @@ async function main() {
       logger.error(`Error al procesar la cola durante el apagado: ${err.message}`);
     }
 
+    releaseInstanceLock();
     logger.info('Desconexion limpia completada. Saliendo.');
     process.exit(0);
   };
 
   process.on('SIGINT', () => gracefulShutdown('SIGINT'));
   process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
+  // Asegurar la liberacion de la instancia al salir
+  process.on('exit', () => {
+    releaseInstanceLock();
+  });
 }
 
 main().catch((err) => {

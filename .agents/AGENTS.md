@@ -31,9 +31,10 @@ Reglas para mantener el código de `wsp-scraper` mantenible, escalable y fácil 
 - **Reconexión**: implementar backoff exponencial ante desconexiones de Baileys, distinguiendo `loggedOut` (requiere re-vincular manualmente) de otras causas (reconectar automáticamente).
 - **Persistencia de sesión**: usar `multi-file auth state` de Baileys para no perder la sesión ante reinicios; excluir esa carpeta del repo.
 - **Shutdown ordenado**: manejar `SIGINT`/`SIGTERM` para cerrar la conexión de WhatsApp y el cliente de Sheets sin dejar escrituras a medias.
+- **Instancia única**: implementar un mecanismo de bloqueo por archivo (lockfile con verificación de PID activo) para evitar que corra más de una instancia del bot simultáneamente.
 
 ## 5. Integridad de datos e idempotencia
-- **Dedupe**: usar el número de teléfono normalizado como clave única; si la misma persona reenvía su LinkedIn, se actualiza la fila existente (upsert), nunca se duplica.
+- **Dedupe**: usar el enlace de LinkedIn normalizado como clave única; si se vuelve a enviar el mismo enlace de LinkedIn, se actualiza la fila existente (upsert) con el último mensaje. Si un mismo remitente envía un enlace diferente, se crea una fila nueva.
 - **Escritura secuencial**: procesar mensajes en una cola (evitar condiciones de carrera si dos mensajes llegan casi al mismo tiempo y afectan la misma fila).
 - **Orden del historial**: al cargar el `.txt` exportado, preservar el orden cronológico original al rellenar la hoja.
 
