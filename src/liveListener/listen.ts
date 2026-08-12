@@ -51,7 +51,11 @@ async function main() {
 
       // En un grupo, el remitente real siempre está en participant
       // Priorizamos el número de teléfono real (participantPn) sobre el identificador interno (participant)
-      const senderJid = msg.key.participantPn || msg.key.participant;
+      let senderJid = msg.key.participantPn || msg.key.participant;
+      if (!senderJid && msg.key.fromMe) {
+        senderJid = sock.user?.id;
+      }
+
       if (!senderJid) {
         logger.debug('Mensaje de grupo recibido sin participante. Ignorando...');
         return;
@@ -60,7 +64,7 @@ async function main() {
       const senderRaw = senderJid.split('@')[0];
 
       // Obtener el nombre push de WhatsApp
-      const whatsappName = msg.pushName || 'Desconocido';
+      const whatsappName = msg.pushName || (msg.key.fromMe ? (sock.user?.name || 'Yo') : 'Desconocido');
 
       // Extraer el texto plano del mensaje
       const text = msg.message?.conversation ||

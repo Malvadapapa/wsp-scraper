@@ -3,6 +3,7 @@ import pino from 'pino';
 import qrcode from 'qrcode-terminal';
 import { Boom } from '@hapi/boom';
 import { logger } from '../core/logger';
+import { addContactToCache, loadContactsCache } from '../core/contactsCache';
 
 /**
  * Establece una conexión persistente a WhatsApp usando Baileys.
@@ -14,6 +15,9 @@ export async function connectToWhatsApp(
   onConnectionOpen: (sock: WASocket) => void,
   onMessage: (sock: WASocket, msg: any) => Promise<void>
 ): Promise<WASocket> {
+  // Cargar cache local de contactos al iniciar la conexion
+  loadContactsCache();
+
   const { state, saveCreds } = await useMultiFileAuthState('auth_info');
   let retryCount = 0;
 
@@ -60,8 +64,11 @@ export async function connectToWhatsApp(
     if (chatUpdate.type !== 'notify') return;
 
     for (const msg of chatUpdate.messages) {
-      // Ignorar mensajes propios del bot
-      if (msg.key.fromMe) continue;
+      // Guardar el pushName en cache si esta disponible
+      const senderJid = msg.key.participant || msg.key.remoteJid;
+      if (msg.pushName && senderJid) {
+        addContactToCache(senderJid, msg.pushName);
+      }
 
       try {
         await onMessage(sock, msg);
@@ -72,18 +79,50 @@ export async function connectToWhatsApp(
   });
 
   // Procesar mensajes del historial de sincronizacion al iniciar o reconectar
-  sock.ev.on('messaging-history.set', async ({ messages }) => {
+  sock.ev.on('messaging-history.set', async ({ messages, contacts }) => {
+    if (contacts && contacts.length > 0) {
+      logger.info(`📥 Recibidos ${contacts.length} contactos del historial de sincronizacion. Indexando...`);
+      for (const contact of contacts) {
+        const name = contact.notify || contact.name || '';
+        if (contact.id && name) {
+          addContactToCache(contact.id, name);
+        }
+      }
+    }
+
     if (!messages || messages.length === 0) return;
     logger.info(`Procesando ${messages.length} mensajes del historial de sincronizacion para recuperar enlaces...`);
 
     for (const msg of messages) {
-      // Ignorar mensajes propios del bot
-      if (msg.key.fromMe) continue;
+      // Extraer pushName del mensaje del historial si esta disponible
+      const senderJid = msg.key.participant || msg.key.remoteJid;
+      if (msg.pushName && senderJid) {
+        addContactToCache(senderJid, msg.pushName);
+      }
 
       try {
         await onMessage(sock, msg);
       } catch (err: any) {
         logger.error(`Error al procesar mensaje de historial: ${err.message}`);
+      }
+    }
+  });
+
+  // Guardar contactos en vivo cuando se reciban o actualicen
+  sock.ev.on('contacts.upsert', (contacts) => {
+    for (const contact of contacts) {
+      const name = contact.notify || contact.name || '';
+      if (contact.id && name) {
+        addContactToCache(contact.id, name);
+      }
+    }
+  });
+
+  sock.ev.on('contacts.update', (updates) => {
+    for (const update of updates) {
+      const name = update.notify || update.name || '';
+      if (update.id && name) {
+        addContactToCache(update.id, name);
       }
     }
   });
