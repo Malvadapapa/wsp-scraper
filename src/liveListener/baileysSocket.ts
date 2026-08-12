@@ -1,5 +1,6 @@
 import makeWASocket, { useMultiFileAuthState, DisconnectReason, WASocket } from '@whiskeysockets/baileys';
 import pino from 'pino';
+import qrcode from 'qrcode-terminal';
 import { Boom } from '@hapi/boom';
 import { logger } from '../core/logger';
 
@@ -18,15 +19,19 @@ export async function connectToWhatsApp(
 
   const sock = makeWASocket({
     auth: state,
-    printQRInTerminal: true,
-    // Silenciar logs internos verbosos de Baileys
+    // Eliminar la opción obsoleta printQRInTerminal
     logger: pino({ level: 'warn' }),
   });
 
   sock.ev.on('creds.update', saveCreds);
 
   sock.ev.on('connection.update', (update) => {
-    const { connection, lastDisconnect } = update;
+    const { connection, lastDisconnect, qr } = update;
+
+    if (qr) {
+      logger.info('📸 Escanea el siguiente código QR con tu WhatsApp en Configuración > Dispositivos vinculados:');
+      qrcode.generate(qr, { small: true });
+    }
 
     if (connection === 'open') {
       logger.info('🟢 Conexión a WhatsApp establecida con éxito.');
